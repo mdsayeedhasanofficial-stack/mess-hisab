@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>মেস হিসাব</title>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef3f1;--panel:#fff;--ink:#12302a;--mute:#5d746d;--line:#cfdcd7;--acc:#0f6b50;--accfg:#fff;--due:#b3361b;--ok:#0f6b50;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a17;--panel:#16251f;--ink:#e3efeb;--mute:#8fa8a0;--line:#2a3f38;--acc:#4cc59a;--accfg:#06241a;--due:#ff8a6b;--ok:#4cc59a}}
+:root[data-theme="dark"]{--bg:#0e1a17;--panel:#16251f;--ink:#e3efeb;--mute:#8fa8a0;--line:#2a3f38;--acc:#4cc59a;--accfg:#06241a;--due:#ff8a6b;--ok:#4cc59a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Hind Siliguri',system-ui,sans-serif;font-size:16px;line-height:1.5;padding-bottom:84px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 16px;border-bottom:2px solid var(--ink)}
+h1{font-size:20px;margin:0;font-weight:700}
+input,select,button{font:inherit;color:inherit}
+input,select{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+main{max-width:640px;margin:0 auto;padding:16px}
+h2{font-size:17px;margin:20px 0 8px}
+.rate{padding:8px 0 16px;border-bottom:1px solid var(--line)}
+.rate small{color:var(--mute);display:block}
+.rate b{font-size:44px;line-height:1.1;color:var(--acc);font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid var(--line);margin-bottom:8px}
+.stats div{padding:10px 0}
+.stats small{display:block;color:var(--mute);font-size:13px}
+.stats b{font-size:18px}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:9px 6px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mute);font-weight:500;font-size:13px}
+.pos{color:var(--ok);font-weight:600}.neg{color:var(--due);font-weight:600}
+.btn{background:var(--acc);color:var(--accfg);border:0;border-radius:6px;padding:9px 16px;font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.x{background:none;border:0;color:var(--due);cursor:pointer;padding:6px 8px;font-size:15px}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.form .full{grid-column:1/-1}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row small{color:var(--mute);display:block}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:38px;height:38px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font-size:20px;cursor:pointer}
+.step input{width:56px;text-align:center}
+.empty{color:var(--mute);padding:24px 0;text-align:center}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--panel);border-top:2px solid var(--ink);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;background:none;border:0;padding:12px 2px;font-size:14px;color:var(--mute);cursor:pointer}
+nav button.on{color:var(--acc);font-weight:700;box-shadow:inset 0 3px 0 var(--acc)}
+label.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mute)}
+</style>
+</head>
+<body>
+<header><h1>মেস হিসাব</h1><input type="month" id="mon" aria-label="মাস"></header>
+<main id="app"></main>
+<nav id="nav"></nav>
+<script>
+const KEY='mess-hisab-v1';
+let S={members:[],meals:{},bazar:[],dep:[]};
+try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const BD='০১২৩৪৫৬৭৮৯';
+const bn=n=>String(n).replace(/\d/g,d=>BD[d]);
+const num=n=>bn(Number((+n).toFixed(2)));
+const tk=n=>'৳'+num(n);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+let tab='sum',month=today().slice(0,7),mealDate=today();
+const TABS=[['sum','হিসাব'],['meal','মিল'],['bazar','বাজার'],['dep','জমা'],['mem','সদস্য']];
+const dfmt=d=>bn(d.slice(8,10)+'/'+d.slice(5,7));
+const name=id=>{const m=S.members.find(x=>x.id===id);return m?esc(m.name):'—'};
+const inM=d=>d.startsWith(month);
+
+function calc(){
+  const meals={};S.members.forEach(m=>meals[m.id]=0);
+  Object.entries(S.meals).forEach(([d,o])=>{if(inM(d))Object.entries(o).forEach(([id,v])=>{if(id in meals)meals[id]+=+v||0})});
+  const bz=S.bazar.filter(b=>inM(b.date)),dp=S.dep.filter(b=>inM(b.date));
+  const totalMeals=Object.values(meals).reduce((a,b)=>a+b,0);
+  const totalBazar=bz.reduce((a,b)=>a+b.amount,0);
+  const rate=totalMeals?totalBazar/totalMeals:0;
+  const totalDep=dp.reduce((a,b)=>a+b.amount,0);
+  const own=bz.filter(b=>b.own).reduce((a,b)=>a+b.amount,0);
+  const rows=S.members.map(m=>{
+    const cost=meals[m.id]*rate;
+    const paid=dp.filter(x=>x.by===m.id).reduce((a,b)=>a+b.amount,0)+bz.filter(b=>b.own&&b.by===m.id).reduce((a,b)=>a+b.amount,0);
+    return {m,meals:meals[m.id],cost,paid,bal:paid-cost};
+  });
+  return {rows,totalMeals,totalBazar,rate,totalDep,cash:totalDep-(totalBazar-own)};
+}
+
+function optMembers(sel){return S.members.map(m=>`<option value="${m.id}"${m.id===sel?' selected':''}>${esc(m.name)}</option>`).join('')}
+const needMem='<div class="empty">আগে "সদস্য" ট্যাবে সদস্য যোগ করুন।</div>';
+
+function view(){
+  const el=document.getElementById('app');
+  if(tab==='sum'){
+    const c=calc();
+    el.innerHTML=`<div class="rate"><small>প্রতি মিলের দাম</small><b>${tk(c.rate)}</b></div>
+    <div class="stats"><div><small>মোট বাজার</small><b>${tk(c.totalBazar)}</b></div><div><small>মোট মিল</small><b>${num(c.totalMeals)}</b></div><div><small>হাতে নগদ</small><b class="${c.cash<0?'neg':''}">${tk(c.cash)}</b></div></div>
+    ${S.members.length?`<div class="wrap"><table><tr><th>নাম</th><th>মিল</th><th>খরচ</th><th>জমা</th><th>বাকি / পাবে</th></tr>
+    ${c.rows.map(r=>`<tr><td>${esc(r.m.name)}</td><td>${num(r.meals)}</td><td>${tk(r.cost)}</td><td>${tk(r.paid)}</td><td class="${r.bal<-0.005?'neg':'pos'}">${r.bal<-0.005?'দিবে '+tk(-r.bal):'পাবে '+tk(r.bal)}</td></tr>`).join('')}</table></div>
+    <p style="margin-top:16px"><button class="btn ghost" onclick="copySum()">হিসাব কপি করুন</button></p>`:needMem}`;
+  }
+  if(tab==='meal'){
+    if(!S.members.length){el.innerHTML=needMem;return}
+    const day=S.meals[mealDate]||{};
+    const tot=S.members.reduce((a,m)=>a+(+day[m.id]||0),0);
+    el.innerHTML=`<div class="form"><input class="full" type="date" id="md" value="${mealDate}" onchange="mealDate=this.value;view()"></div>
+    ${S.members.map(m=>`<div class="row"><span>${esc(m.name)}</span><span class="step"><button aria-label="কমান" onclick="adj('${m.id}',-1)">−</button><input type="number" inputmode="decimal" min="0" step="0.5" value="${day[m.id]||0}" onchange="setMeal('${m.id}',this.value)"><button aria-label="বাড়ান" onclick="adj('${m.id}',1)">+</button></span></div>`).join('')}
+    <p>এই দিনের মোট মিল: <b>${num(tot)}</b></p>`;
+  }
+  if(tab==='bazar'){
+    if(!S.members.length){el.innerHTML=needMem;return}
+    const list=S.bazar.filter(b=>inM(b.date)).sort((a,b)=>b.date.localeCompare(a.date));
+    el.innerHTML=`<div class="form"><input type="date" id="bd" value="${today()}"><select id="bw">${optMembers()}</select>
+    <input class="full" type="number" inputmode="decimal" id="ba" placeholder="টাকার পরিমাণ"><input class="full" id="bn" placeholder="কী কেনা হয়েছে (ঐচ্ছিক)">
+    <label class="chk full"><input type="checkbox" id="bo">নিজের পকেট থেকে দিয়েছে (তার জমায় যোগ হবে)</label>
+    <button class="btn full" onclick="addBazar()">বাজার যোগ করুন</button></div>
+    <h2>এই মাসের বাজার — মোট ${tk(list.reduce((a,b)=>a+b.amount,0))}</h2>
+    ${list.length?list.map(b=>`<div class="row"><span>${dfmt(b.date)} · ${name(b.by)}${b.own?' (নিজের টাকা)':''}<small>${esc(b.note||'')}</small></span><span><b>${tk(b.amount)}</b><button class="x" aria-label="মুছুন" onclick="del('bazar','${b.id}')">মুছুন</button></span></div>`).join(''):'<div class="empty">এই মাসে এখনো বাজার লেখা হয়নি।</div>'}`;
+  }
+  if(tab==='dep'){
+    if(!S.members.length){el.innerHTML=needMem;return}
+    const list=S.dep.filter(b=>inM(b.date)).sort((a,b)=>b.date.localeCompare(a.date));
+    el.innerHTML=`<div class="form"><input type="date" id="dd" value="${today()}"><select id="dw">${optMembers()}</select>
+    <input class="full" type="number" inputmode="decimal" id="da" placeholder="জমার পরিমাণ"><button class="btn full" onclick="addDep()">জমা যোগ করুন</button></div>
+    <h2>এই মাসের জমা — মোট ${tk(list.reduce((a,b)=>a+b.amount,0))}</h2>
+    ${list.length?list.map(b=>`<div class="row"><span>${dfmt(b.date)} · ${name(b.by)}</span><span><b>${tk(b.amount)}</b><button class="x" aria-label="মুছুন" onclick="del('dep','${b.id}')">মুছুন</button></span></div>`).join(''):'<div class="empty">এই মাসে এখনো জমা লেখা হয়নি।</div>'}`;
+  }
+  if(tab==='mem'){
+    el.innerHTML=`<div class="form"><input id="mn" placeholder="সদস্যের নাম"><button class="btn" onclick="addMem()">যোগ করুন</button></div>
+    ${S.members.length?S.members.map(m=>`<div class="row"><span>${esc(m.name)}</span><button class="x" onclick="delMem('${m.id}')">মুছুন</button></div>`).join(''):'<div class="empty">কোনো সদস্য নেই। উপরে নাম লিখে যোগ করুন।</div>'}
+    <p style="color:var(--mute);font-size:14px;margin-top:20px">তথ্য এই ফোন/ব্রাউজারেই সংরক্ষিত থাকে। অন্যদের দেখাতে "হিসাব" ট্যাবের কপি বাটন ব্যবহার করুন।</p>`;
+  }
+  document.getElementById('nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
+}
+function go(t){tab=t;view();scrollTo(0,0)}
+function adj(id,d){const o=S.meals[mealDate]=S.meals[mealDate]||{};o[id]=Math.max(0,(+o[id]||0)+d);save();view()}
+function setMeal(id,v){const o=S.meals[mealDate]=S.meals[mealDate]||{};o[id]=Math.max(0,+v||0);save();view()}
+function val(id){return document.getElementById(id).value}
+function addBazar(){const a=+val('ba');if(!(a>0)){alert('টাকার পরিমাণ লিখুন');return}
+  S.bazar.push({id:uid(),date:val('bd')||today(),by:val('bw'),amount:a,note:val('bn').trim(),own:document.getElementById('bo').checked});save();view()}
+function addDep(){const a=+val('da');if(!(a>0)){alert('জমার পরিমাণ লিখুন');return}
+  S.dep.push({id:uid(),date:val('dd')||today(),by:val('dw'),amount:a});save();view()}
+function addMem(){const n=val('mn').trim();if(!n)return;S.members.push({id:uid(),name:n});save();view()}
+function del(k,id){if(confirm('মুছে ফেলবেন?')){S[k]=S[k].filter(x=>x.id!==id);save();view()}}
+function delMem(id){if(confirm('এই সদস্য এবং তার সব মিল, বাজার ও জমার হিসাব মুছে যাবে। নিশ্চিত?')){
+  S.members=S.members.filter(m=>m.id!==id);S.bazar=S.bazar.filter(b=>b.by!==id);S.dep=S.dep.filter(b=>b.by!==id);
+  Object.values(S.meals).forEach(o=>delete o[id]);save();view()}}
+function copySum(){const c=calc();
+  const t=`মেস হিসাব (${bn(month)})\nমোট বাজার: ${tk(c.totalBazar)} | মোট মিল: ${num(c.totalMeals)} | মিল রেট: ${tk(c.rate)}\n`+
+  c.rows.map(r=>`${r.m.name}: মিল ${num(r.meals)}, খরচ ${tk(r.cost)}, জমা ${tk(r.paid)}, ${r.bal<-0.005?'দিবে '+tk(-r.bal):'পাবে '+tk(r.bal)}`).join('\n');
+  try{navigator.clipboard.writeText(t).then(()=>alert('কপি হয়েছে')).catch(()=>prompt('কপি করুন:',t))}catch(e){prompt('কপি করুন:',t)}}
+const mon=document.getElementById('mon');mon.value=month;
+mon.onchange=()=>{month=mon.value||month;view()};
+view();
+</script>
+</body>
+</html>
